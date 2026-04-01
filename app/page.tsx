@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import AnimatedBackground from './components/AnimatedBackground';
 import LiquidGlass from './components/LiquidGlass';
 
@@ -16,11 +15,6 @@ export default function FreeWebsite() {
         return () => clearTimeout(timer);
     }, []);
 
-    // Preserve UTM params from Meta ads
-    const [searchParams, setSearchParams] = useState('');
-    useEffect(() => {
-        setSearchParams(window.location.search);
-    }, []);
 
     return (
         <div style={{
@@ -104,8 +98,44 @@ export default function FreeWebsite() {
                 </p>
 
                 {/* CTA Button */}
-                <Link
-                    href={`/free-website/book${searchParams}`}
+                <a
+                    href="https://wa.me/96176412978?text=Hi%2C%20I'm%20interested%20in%20getting%20a%20free%20website!"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                        try {
+                            const leadEventId = crypto.randomUUID ? crypto.randomUUID() : 'lead-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                            if (typeof window !== 'undefined' && typeof (window as any).fbq === 'function') {
+                                (window as any).fbq('track', 'Lead', {}, { eventID: leadEventId });
+                            }
+                            const getCookie = (name: string) => { const m = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)')); return m ? m[2] : null; };
+                            const fbp = getCookie('_fbp');
+                            const fbc = getCookie('_fbc');
+                            // Send CAPI event
+                            fetch('/api/capi', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    event_name: 'Lead',
+                                    event_id: leadEventId,
+                                    event_source_url: window.location.href,
+                                    user_data: { fbp, fbc }
+                                })
+                            }).catch(err => console.warn('[CAPI Lead]', err.message));
+                            // Forward lead to scoring pipeline
+                            fetch('/api/leads/forward', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    lead_name: 'WhatsApp Lead',
+                                    source: 'landing_page',
+                                    event_id: leadEventId,
+                                    fbp, fbc,
+                                    event_source_url: window.location.href,
+                                })
+                            }).catch(err => console.warn('[Lead Forward]', err.message));
+                        } catch (e) { console.warn('[Lead tracking]', e); }
+                    }}
                     onMouseEnter={() => setIsHovered(true)}
                     onMouseLeave={() => setIsHovered(false)}
                     style={{
@@ -125,8 +155,8 @@ export default function FreeWebsite() {
                         marginTop: '0.5rem',
                     }}
                 >
-                    Book a Meeting
-                </Link>
+                    Book Meeting on WhatsApp
+                </a>
             </LiquidGlass>
         </div>
     );
